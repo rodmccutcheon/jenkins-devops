@@ -1,0 +1,10 @@
+ansicolor:0.6.2
+antisamy-markup-formatter:1.5
+aws-credentials:1.27
+bitbucket:1.1.10
+codebuilder-cloud:1.0.1
+git:3.10.1
+github:1.29.4
+slack:2.27
+sonar:2.9
+workflow-aggregator:2.6
