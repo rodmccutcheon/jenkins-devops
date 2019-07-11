@@ -9,13 +9,13 @@ RUN apt-get update \
 
 USER jenkins
 
-ENV JENKINS_CONFIG_PATH /var/jenkins_home/init.groovy.d
+ENV JENKINS_CONFIG_PATH /var/jenkins_home/init.groovy.d/config
 
 # Disable the setup wizard - we're going to configure Jenkins programmatically
 ENV JAVA_OPTS -Djenkins.install.runSetupWizard=false
 
 # Install plugins
-COPY config/plugins.txt /usr/share/jenkins/ref/plugins.txt
+COPY plugins.txt /usr/share/jenkins/ref/plugins.txt
 RUN /usr/local/bin/install-plugins.sh < /usr/share/jenkins/ref/plugins.txt
 
 # Copy configuration scripts that will be executed by groovy
