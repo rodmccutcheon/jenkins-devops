@@ -30,7 +30,7 @@ def slack = jenkins.getExtensionList(
         jenkins.plugins.slack.SlackNotifier.DescriptorImpl.class
     )[0]
 
-//slack.baseUrl = slackConfig.SLACK_BASE_URL
+slack.baseUrl = slackConfig.slack_base_url
 slack.teamDomain = slackConfig.team_subdomain
 slack.tokenCredentialId = slackConfig.integration_token
 slack.botUser = slackConfig.is_slack_bot
