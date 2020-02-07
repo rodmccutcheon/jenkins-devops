@@ -1,0 +1,12 @@
+FROM jenkins/jnlp-slave:3.40-1-jdk11
+
+USER root
+ADD jenkinscert.der .
+RUN keytool -import -trustcacerts -alias jenkins-master-der \
+  -keystore /usr/local/openjdk-11/lib/security/cacerts \
+  -file jenkinscert.der \
+  -storepass changeit \
+  -noprompt
+USER jenkins
+
+ENTRYPOINT ["jenkins-slave"]
