@@ -1,12 +1,136 @@
-FROM jenkins/jnlp-slave:3.40-1-jdk11
+FROM ubuntu:20.04
+LABEL name="Java Build Tools" \
+      maintainer="Cloudbees CloudPlatform Security Members <cloud-platform-security-members@cloudbees.com>" \
+      license="Apache-2.0" \
+      version="latest" \
+      summary="Convenient Docker image to build Java applications." \
+      description="Convenient Docker image to build Java applications."
 
-USER root
-ADD jenkinscert.der .
-RUN keytool -import -trustcacerts -alias jenkins-master-der \
-  -keystore /usr/local/openjdk-11/lib/security/cacerts \
-  -file jenkinscert.der \
-  -storepass changeit \
-  -noprompt
+
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+#################################################
+# Inspired by
+# https://github.com/SeleniumHQ/docker-selenium/blob/master/Base/Dockerfile
+#################################################
+
+
+#================================================
+# Customize sources for apt-get
+#================================================
+RUN DISTRIB_CODENAME=$(cat /etc/*release* | grep DISTRIB_CODENAME | cut -f2 -d'=') \
+    && echo "deb http://archive.ubuntu.com/ubuntu ${DISTRIB_CODENAME} main universe\n" > /etc/apt/sources.list \
+    && echo "deb http://archive.ubuntu.com/ubuntu ${DISTRIB_CODENAME}-updates main universe\n" >> /etc/apt/sources.list \
+    && echo "deb http://security.ubuntu.com/ubuntu ${DISTRIB_CODENAME}-security main universe\n" >> /etc/apt/sources.list
+
+RUN apt-get update -qqy \
+  && apt-get -qqy --no-install-recommends install software-properties-common \
+  && add-apt-repository -y ppa:git-core/ppa
+
+#========================
+# Miscellaneous packages
+# iproute which is surprisingly not available in ubuntu:15.04 but is available in ubuntu:latest
+# OpenJDK11
+# groff is for aws-cli
+# tree is convenient for troubleshooting builds
+#========================
+RUN apt-get update -qqy \
+  && apt-get -qqy --no-install-recommends install \
+    iproute2 \
+    openssh-client ssh-askpass\
+    ca-certificates \
+    gpg gpg-agent \
+    openjdk-11-jdk \
+    tar zip unzip \
+    wget curl \
+    git \
+    build-essential \
+    less nano tree \
+    jq \
+    python3 python3-pip groff \
+    rsync \
+  && apt-get clean
+
+#  && sed -i 's/securerandom\.source=file:\/dev\/random/securerandom\.source=file:\/dev\/urandom/' ./usr/lib/jvm/java-11-openjdk-amd64/jre/lib/security/java.security
+
+# Update pip after install
+RUN pip3 install --upgrade pip setuptools
+
+RUN pip3 install yq
+
+#==========
+# Docker
+#==========
+
+RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+
+RUN add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable"
+
+RUN apt-get -qqy install --no-install-recommends docker-ce
+
+#==========
+# Maven
+#==========
+ENV MAVEN_VERSION 3.6.3
+
+RUN curl -fsSL http://archive.apache.org/dist/maven/maven-3/$MAVEN_VERSION/binaries/apache-maven-$MAVEN_VERSION-bin.tar.gz | tar xzf - -C /usr/share \
+  && mv /usr/share/apache-maven-$MAVEN_VERSION /usr/share/maven \
+  && ln -s /usr/share/maven/bin/mvn /usr/bin/mvn
+
+ENV MAVEN_HOME /usr/share/maven
+
+#==========
+# Gradle
+#==========
+
+ENV GRADLE_VERSION 6.5.1
+
+RUN wget -q https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip -P /tmp \
+  && unzip -d /opt/gradle /tmp/gradle-${GRADLE_VERSION}-bin.zip \
+  && ln -s /opt/gradle/gradle-${GRADLE_VERSION}/bin/gradle /usr/bin/gradle \
+  && rm /tmp/gradle-${GRADLE_VERSION}-bin.zip
+
+#========================================
+# Add normal user with passwordless sudo
+#========================================
+RUN useradd jenkins --shell /bin/bash --create-home \
+  && usermod -a -G sudo jenkins \
+  && echo 'ALL ALL = (ALL) NOPASSWD: ALL' >> /etc/sudoers \
+  && echo 'jenkins:secret' | chpasswd
+
+#====================================
+# AWS CLI
+#====================================
+RUN pip3 install awscli
+
+# compatibility with CloudBees AWS CLI Plugin which expects pip to be installed as user
+RUN mkdir -p /home/jenkins/.local/bin/ \
+  && ln -s /usr/local/bin/pip /home/jenkins/.local/bin/pip \
+  && chown -R jenkins:jenkins /home/jenkins/.local
+
+#====================================
+# Kubernetes CLI
+# See https://storage.googleapis.com/kubernetes-release/release/stable.txt
+#====================================
+RUN curl https://storage.googleapis.com/kubernetes-release/release/v1.19.3/bin/linux/amd64/kubectl -o /usr/local/bin/kubectl && chmod +x /usr/local/bin/kubectl
+
 USER jenkins
 
-ENTRYPOINT ["jenkins-slave"]
+ENTRYPOINT ["/opt/bin/entry_point.sh"]
+
+EXPOSE 4444
