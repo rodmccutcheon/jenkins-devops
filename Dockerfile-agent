@@ -133,15 +133,13 @@ RUN curl https://storage.googleapis.com/kubernetes-release/release/v1.19.3/bin/l
 # Slave
 #==========
 
-# See https://github.com/jenkinsci/docker-slave/blob/master/Dockerfile#L31
-ENV JENKINS_REMOTING_VERSION 3.35
+USER root
 
-RUN curl --create-dirs -fsSLo /usr/local/bin/jenkins-agent https://repo.jenkins-ci.org/public/org/jenkins-ci/main/remoting/3.35/remoting-3.35.jar \
-  && chmod +x /usr/local/bin/jenkins-agent \
-  && ln -s /usr/local/bin/jenkins-agent /usr/local/bin/jenkins-slave
+COPY jenkins-agent /usr/local/bin/jenkins-agent
+
+RUN chmod +x /usr/local/bin/jenkins-agent && \
+    ln -s /usr/local/bin/jenkins-agent /usr/local/bin/jenkins-slave
 
 USER jenkins
 
-ENTRYPOINT ["java", "-jar", "/usr/local/bin/jenkins-agent"]
-
-EXPOSE 4444
+ENTRYPOINT ["jenkins-agent"]
