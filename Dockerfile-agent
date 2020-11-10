@@ -87,7 +87,7 @@ RUN apt-get -qqy install --no-install-recommends docker-ce docker-ce-cli contain
 
 RUN apt-get update
 
-RUN docker-ce docker-ce-cli containerd.io
+RUN apt-get install sudo -y
 
 
 #==========
